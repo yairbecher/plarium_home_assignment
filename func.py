@@ -1,5 +1,3 @@
-
-
 import pandas as pd
 import sqlite3
 import matplotlib.pyplot as plt
@@ -17,12 +15,6 @@ input_file = os.environ.get('input_file')
 df = pd.read_csv(input_file)
 
 
-def reformat_date(df: pd.DataFrame) -> df:
-   date_list = df["Registration_Date"].tolist()
-   converted_dates = [convert_excel_date(date) for date in date_list]
-   df['Registration_Date'] = pd.Series(converted_dates)
-   df['Registration_Date'] = pd.to_datetime(df['Registration_Date'], errors='coerce')
-   return df
 
 
 def convert_excel_date(date):
@@ -30,9 +22,16 @@ def convert_excel_date(date):
    try:
        number = int(date)
        date = excel_start + timedelta(days=number)
-       return date.strftime('%d/%m/%Y')
+       return date.strftime('%m/%d/%Y')
    except ValueError:
-       return date
+       date = pd.to_datetime(date)
+       return date.strftime('%m/%d/%Y')
+
+
+def reformat_date(df: pd.DataFrame) -> pd.DataFrame:
+   df['Registration_Date'] = df['Registration_Date'].apply(convert_excel_date)
+   df['Registration_Date'] = pd.to_datetime(df['Registration_Date'], errors='coerce', dayfirst=False)
+   return df
 
 
 def calc_avg_deposits_df(df: pd.DataFrame):
@@ -105,8 +104,6 @@ FROM game"""
    result.columns = ["Registration_Country", "avg_day7", "avg_day30", "avg_day60", "avg_day90",
                      "avg_day120", "avg_day150", "avg_day180"]
 
-
-   print(result)
    return result
 
 
@@ -153,7 +150,6 @@ GROUP BY Advertising_Channel"""
 
 
    result = pd.read_sql_query(query, conn)
-   print(result)
    return result
 
 
@@ -171,14 +167,12 @@ def calc_df_advertising_by_date(df: pd.DataFrame, conn):
    AVG(Advertising_Spend) AS avg_ad_spend,
    AVG(Number_Registrations) AS avg_registrations
 FROM game
-WHERE Registration_Date IS NOT NULL
 GROUP BY Month, Advertising_Channel
 ORDER BY Month, Advertising_Channel;
 """
 
 
    result = pd.read_sql_query(query, conn)
-   print(result)
    return result
 
 
@@ -229,10 +223,11 @@ def calc_advertising_by_channel_graphs(df_advertising: pd.DataFrame, output_dir)
 
 
 def calc_roi_per_channel(df: pd.DataFrame, conn):
-   df.to_sql("game", conn, if_exists="replace", index=False)
+
+    df.to_sql("game", conn, if_exists="replace", index=False)
 
 
-   query = """WITH RankedData AS (
+    query = """WITH RankedData AS (
                SELECT
                    Advertising_Channel,
                    SUM(Advertising_Spend) AS total_ad_spend,
@@ -256,18 +251,132 @@ def calc_roi_per_channel(df: pd.DataFrame, conn):
            ORDER BY Rank_Ad_Spend;"""
 
 
-
-
-   result = pd.read_sql_query(query, conn)
-   return result
-
+    result = pd.read_sql_query(query, conn)
+    return result
 
 
 
-
-
-
-
+# def calc_roi_per_channel(df: pd.DataFrame, conn):
+#     """
+#     Calculates ROI per advertising channel, ranks channels by advertising spend & registrations,
+#     and ensures proper formatting and handling of missing values.
+#     """
+#
+#     # Ensure numeric columns have no NaNs before converting to int
+#     df[["Advertising_Spend", "Number_Registrations",
+#         "Accum_Day7_Deposit_Amount", "Accum_Day30_Deposit_Amount",
+#         "Accum_Day60_Deposit_Amount", "Accum_Day90_Deposit_Amount",
+#         "Accum_Day120_Deposit_Amount", "Accum_Day150_Deposit_Amount",
+#         "Accum_Day180_Deposit_Amount"]] = df[[
+#         "Advertising_Spend", "Number_Registrations",
+#         "Accum_Day7_Deposit_Amount", "Accum_Day30_Deposit_Amount",
+#         "Accum_Day60_Deposit_Amount", "Accum_Day90_Deposit_Amount",
+#         "Accum_Day120_Deposit_Amount", "Accum_Day150_Deposit_Amount",
+#         "Accum_Day180_Deposit_Amount"
+#     ]].fillna(0).astype(int)
+#
+#     # Debugging: Print the first few rows to confirm correct conversion
+#     print("🚀 DataFrame before inserting into SQL:")
+#     print(df.head())
+#
+#     # Insert DataFrame into SQLite
+#     df.to_sql("game", conn, if_exists="replace", index=False)
+#
+#     # Check if the table is empty
+#     cursor = conn.cursor()
+#     cursor.execute("SELECT COUNT(*) FROM game")
+#     row_count = cursor.fetchone()[0]
+#     if row_count == 0:
+#         print("⚠️ No data found in SQL table. Returning empty DataFrame.")
+#         return pd.DataFrame()
+#
+#     # SQL Query: Calculate ROI and rank advertising channels
+#     query = """WITH RankedData AS (
+#        SELECT
+#            Advertising_Channel,
+#            SUM(Advertising_Spend) AS total_ad_spend,
+#            SUM(Number_Registrations) AS total_registrations,
+#            COALESCE(SUM(Accum_Day7_Deposit_Amount), 0) AS total_deposit_day7,
+#            COALESCE(SUM(Accum_Day30_Deposit_Amount), 0) AS total_deposit_day30,
+#            COALESCE(SUM(Accum_Day60_Deposit_Amount), 0) AS total_deposit_day60,
+#            COALESCE(SUM(Accum_Day90_Deposit_Amount), 0) AS total_deposit_day90,
+#            COALESCE(SUM(Accum_Day120_Deposit_Amount), 0) AS total_deposit_day120,
+#            COALESCE(SUM(Accum_Day150_Deposit_Amount), 0) AS total_deposit_day150,
+#            COALESCE(SUM(Accum_Day180_Deposit_Amount), 0) AS total_deposit_day180,
+#
+#            -- ROI Calculation with NULL handling
+#            COALESCE(
+#                CASE
+#                    WHEN SUM(Advertising_Spend) = 0 THEN NULL
+#                    ELSE (SUM(Accum_Day7_Deposit_Amount) - SUM(Advertising_Spend)) / NULLIF(SUM(Advertising_Spend), 0) * 100
+#                END, 0) AS ROI_7,
+#
+#            COALESCE(
+#                CASE
+#                    WHEN SUM(Advertising_Spend) = 0 THEN NULL
+#                    ELSE (SUM(Accum_Day30_Deposit_Amount) - SUM(Advertising_Spend)) / NULLIF(SUM(Advertising_Spend), 0) * 100
+#                END, 0) AS ROI_30,
+#
+#            COALESCE(
+#                CASE
+#                    WHEN SUM(Advertising_Spend) = 0 THEN NULL
+#                    ELSE (SUM(Accum_Day60_Deposit_Amount) - SUM(Advertising_Spend)) / NULLIF(SUM(Advertising_Spend), 0) * 100
+#                END, 0) AS ROI_60,
+#
+#            COALESCE(
+#                CASE
+#                    WHEN SUM(Advertising_Spend) = 0 THEN NULL
+#                    ELSE (SUM(Accum_Day90_Deposit_Amount) - SUM(Advertising_Spend)) / NULLIF(SUM(Advertising_Spend), 0) * 100
+#                END, 0) AS ROI_90,
+#
+#            COALESCE(
+#                CASE
+#                    WHEN SUM(Advertising_Spend) = 0 THEN NULL
+#                    ELSE (SUM(Accum_Day120_Deposit_Amount) - SUM(Advertising_Spend)) / NULLIF(SUM(Advertising_Spend), 0) * 100
+#                END, 0) AS ROI_120,
+#
+#            COALESCE(
+#                CASE
+#                    WHEN SUM(Advertising_Spend) = 0 THEN NULL
+#                    ELSE (SUM(Accum_Day150_Deposit_Amount) - SUM(Advertising_Spend)) / NULLIF(SUM(Advertising_Spend), 0) * 100
+#                END, 0) AS ROI_150,
+#
+#            COALESCE(
+#                CASE
+#                    WHEN SUM(Advertising_Spend) = 0 THEN NULL
+#                    ELSE (SUM(Accum_Day180_Deposit_Amount) - SUM(Advertising_Spend)) / NULLIF(SUM(Advertising_Spend), 0) * 100
+#                END, 0) AS ROI_180
+#
+#        FROM game
+#        GROUP BY Advertising_Channel
+#     )
+#     SELECT
+#        Advertising_Channel,
+#        ROI_7, ROI_30, ROI_60, ROI_90, ROI_120, ROI_150, ROI_180,
+#        RANK() OVER (ORDER BY total_ad_spend DESC) AS Rank_Ad_Spend,
+#        RANK() OVER (ORDER BY total_registrations DESC) AS Rank_Registrations
+#     FROM RankedData
+#     ORDER BY Rank_Ad_Spend;"""
+#
+#     # Execute the SQL query
+#     result = pd.read_sql_query(query, conn)
+#
+#     # Standardize column names (strip spaces)
+#     result.columns = result.columns.str.strip()
+#
+#     # Define the expected ROI columns
+#     roi_columns = ["ROI_7", "ROI_30", "ROI_60", "ROI_90", "ROI_120", "ROI_150", "ROI_180"]
+#
+#     # Check if the expected ROI columns exist
+#     existing_cols = [col for col in roi_columns if col in result.columns]
+#
+#     if existing_cols:
+#         # Convert existing ROI columns to integers
+#         result[existing_cols] = result[existing_cols].fillna(0).astype(int)
+#     else:
+#         print("⚠️ Warning: No ROI columns found in result.")
+#
+#     return result
 
 
 def plot_all_channels_side_by_side(df_advertising: pd.DataFrame):
