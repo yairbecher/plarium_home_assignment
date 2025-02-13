@@ -50,7 +50,6 @@ def save_outputs(output_dir, dataframes_dict, plots_dict):
 
 def calc_avg_deposits_df(df: pd.DataFrame):
 
-
    number_columns_dict = {
        'Number_Day7_Depositors': 'day_7',
        'Number_Day30_Depositors': 'day_30',
@@ -60,7 +59,6 @@ def calc_avg_deposits_df(df: pd.DataFrame):
        'Number_Day150_Depositors': 'day_150',
        'Number_Day180_Depositors': 'day_180'
    }
-
 
    amount_columns_dict = {
        'Accum_Day7_Deposit_Amount': 'day_7',
@@ -72,11 +70,8 @@ def calc_avg_deposits_df(df: pd.DataFrame):
        'Accum_Day180_Deposit_Amount': 'day_180'
    }
 
-
    df_number = df.rename(columns=number_columns_dict)
    df_amount = df.rename(columns=amount_columns_dict)
-
-
    return df_number, df_amount
 
 
@@ -212,7 +207,6 @@ def calc_advertising_by_channel_graphs(df_advertising: pd.DataFrame):
 
 
 def calc_roi_per_channel(df: pd.DataFrame, conn):
-
     df.to_sql("game", conn, if_exists="replace", index=False)
 
     query_monthly = """WITH RankedData AS (
@@ -273,7 +267,6 @@ def calc_roi_per_channel(df: pd.DataFrame, conn):
 
 
 def plot_all_channels_side_by_side(df_advertising: pd.DataFrame):
-    """יוצר גרף עם כל הערוצים זה לצד זה"""
     channels = df_advertising["Advertising_Channel"].unique()
     num_channels = len(channels)
 
