@@ -41,14 +41,6 @@ dataframes_dict = {
 
 
 
-plot_all_channels_side_by_side(df_advertising)
-calc_advertising_by_channel_graphs(df_advertising)
-avg_depositors_graph(df_avg_number_Depositors_by_country, count=True, by=True)
-avg_depositors_graph(df_avg_depositors_amount_by_country, count=False, by=True)
-avg_depositors_graph(df_avg_number_Depositors_by_channel, count=True, by=False)
-avg_depositors_graph(df_avg_depositors_amount_by_channel, count=False, by=False)
-
-
 plots_dict = {
     "plt_spend_end_registration_all_channels_combined": lambda: calc_advertising_by_channel_graphs(df_advertising),
     "plt_spend_end_registration_all_channels_side_by_side": lambda: plot_all_channels_side_by_side(df_advertising),
@@ -57,7 +49,6 @@ plots_dict = {
     "plt_avg_number_depositors_by_chanel": lambda: avg_depositors_graph(df_avg_number_Depositors_by_channel, count=True, by=False),
     "plt_avg_amount_depositors_by_chanel": lambda: avg_depositors_graph(df_avg_depositors_amount_by_channel, count=False, by=False)
 }
-
 
 
 all_plots = {}
