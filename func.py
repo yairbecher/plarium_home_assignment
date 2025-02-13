@@ -1,21 +1,10 @@
 import pandas as pd
-import sqlite3
 import matplotlib.pyplot as plt
 from datetime import datetime, timedelta
-import seaborn as sns
 import os
-from scipy.signal import savgol_filter
 
 
-
-
-
-
-input_file = os.environ.get('input_file')
-df = pd.read_csv(input_file)
-
-
-
+# # # prep # # #
 
 def convert_excel_date(date):
    excel_start = datetime(1899, 12, 30)
@@ -33,6 +22,33 @@ def reformat_date(df: pd.DataFrame) -> pd.DataFrame:
    df['Registration_Date'] = pd.to_datetime(df['Registration_Date'], errors='coerce', dayfirst=False)
    return df
 
+
+# # # save # # #
+
+def save_dataframes(output_dir, **dataframes):
+    for name, df in dataframes.items():
+        file_path = os.path.join(output_dir, f"{name}.csv")
+        df.to_csv(file_path, index=False)
+        print(f"Saved: {file_path}")
+
+
+def save_plots(output_dir, **plot_functions):
+    for name, plot_func in plot_functions.items():
+        file_path = os.path.join(output_dir, f"{name}.png")
+        plt.figure()
+        plot_func()
+        plt.savefig(file_path)
+        plt.close()
+        print(f"Saved: {file_path}")
+
+
+def save_outputs(output_dir, dataframes, plot_functions):
+    save_dataframes(output_dir, **dataframes)
+    save_plots(output_dir, **plot_functions)
+    print("All outputs saved successfully.")
+
+
+# # # analasys # # #
 
 def calc_avg_deposits_df(df: pd.DataFrame):
 
@@ -81,12 +97,10 @@ def calc_df_avg_Depositors_by_country(df: pd.DataFrame, conn):
    AVG(day_120) - AVG(day_90) as avg_day120,
    AVG(day_150) - AVG(day_120) as avg_day150,
    AVG(day_180) - AVG(day_150) as avg_day180
-FROM game
-GROUP BY Registration_Country
-
+    FROM game
+    GROUP BY Registration_Country
 
 UNION ALL
-
 
 SELECT
    'Total Average' as Registration_Country,
@@ -97,9 +111,7 @@ SELECT
    AVG(day_120) - AVG(day_90) as avg_day120,
    AVG(day_150) - AVG(day_120) as avg_day150,
    AVG(day_180) - AVG(day_150) as avg_day180
-
-
-FROM game"""
+   FROM game"""
    result = pd.read_sql_query(query, conn)
    result.columns = ["Registration_Country", "avg_day7", "avg_day30", "avg_day60", "avg_day90",
                      "avg_day120", "avg_day150", "avg_day180"]
@@ -109,24 +121,28 @@ FROM game"""
 
 
 
+def avg_depositors_graph(df: pd.DataFrame, count: bool, by: bool ):
 
+       if count:
+           count = 'number'
+       else:
+           count = 'amount'
 
-def avg_depositors_graph(df: pd.DataFrame, titel: str):
-
+       if by:
+           by = 'country'
+       else:
+           by = 'channel'
 
        df = df.set_index(df.columns[0])
 
-
        plt.figure(figsize=(10, 5))
-
 
        for country in df.index:
            plt.plot(df.columns, df.loc[country], marker='o', label=country)
 
-
        plt.xlabel('Days Range')
        plt.ylabel('Average')
-       plt.title(f'Average {titel} Depositors Over Time by Country')
+       plt.title(f'Average {count} Depositors Over Time by {by}')
        plt.legend()
        plt.grid(True)
        plt.show()
@@ -137,22 +153,18 @@ def avg_depositors_graph(df: pd.DataFrame, titel: str):
 def calc_df_avg_Depositors_by_channel(df: pd.DataFrame, conn):
    df.to_sql("game", conn, if_exists="replace", index=False)
    query = """SELECT
-   Advertising_Channel,
-   AVG(day_7) as avg_day7,
-   AVG(day_30) - AVG(day_7) as avg_day30,
-   AVG(day_60) - AVG(day_30) as avg_day60,
-   AVG(day_90) - AVG(day_60) as avg_day90,
-   AVG(day_120) - AVG(day_90) as avg_day120,
-   AVG(day_150) - AVG(day_120) as avg_day150,
-   AVG(day_180) - AVG(day_150) as avg_day180
-FROM game
-GROUP BY Advertising_Channel"""
+               Advertising_Channel,
+               AVG(day_7) as avg_day7,
+               AVG(day_30) - AVG(day_7) as avg_day30,
+               AVG(day_60) - AVG(day_30) as avg_day60,
+               AVG(day_90) - AVG(day_60) as avg_day90,
+               AVG(day_120) - AVG(day_90) as avg_day120,
+               AVG(day_150) - AVG(day_120) as avg_day150,
+               AVG(day_180) - AVG(day_150) as avg_day180
+            FROM game
+            GROUP BY Advertising_Channel"""
 
-
-   result = pd.read_sql_query(query, conn)
-   return result
-
-
+   return pd.read_sql_query(query, conn)
 
 
 
@@ -160,28 +172,22 @@ GROUP BY Advertising_Channel"""
 def calc_df_advertising_by_date(df: pd.DataFrame, conn):
    df.to_sql("game", conn, if_exists="replace", index=False)
 
-
    query = """SELECT
-   strftime('%Y-%m', DATE(Registration_Date)) AS Month,
-   Advertising_Channel,
-   AVG(Advertising_Spend) AS avg_ad_spend,
-   AVG(Number_Registrations) AS avg_registrations
-FROM game
-GROUP BY Month, Advertising_Channel
-ORDER BY Month, Advertising_Channel;
-"""
+               strftime('%Y-%m', DATE(Registration_Date)) AS Month,
+               Advertising_Channel,
+               AVG(Advertising_Spend) AS avg_ad_spend,
+               AVG(Number_Registrations) AS avg_registrations
+            FROM game
+            GROUP BY Month, Advertising_Channel
+            ORDER BY Month, Advertising_Channel;"""
+
+   return pd.read_sql_query(query, conn)
 
 
-   result = pd.read_sql_query(query, conn)
-   return result
-
-
-def calc_advertising_by_channel_graphs(df_advertising: pd.DataFrame, output_dir):
-   output_path = os.path.join(output_dir, "advertising_spend_over_time.png")
-
+def calc_advertising_by_channel_graphs(df_advertising: pd.DataFrame):
    df_advertising["Month"] = pd.to_datetime(df_advertising["Month"])
 
-   # Plot 1: Advertising Spend Over Time by Channel
+   # Plot 1
    plt.figure(figsize=(12, 6))
    for channel in df_advertising["Advertising_Channel"].unique():
        subset = df_advertising[df_advertising["Advertising_Channel"] == channel]
@@ -194,14 +200,10 @@ def calc_advertising_by_channel_graphs(df_advertising: pd.DataFrame, output_dir)
    plt.legend()
    plt.grid(True)
    plt.xticks(rotation=45)
-   plt.savefig(output_path, dpi=300)
    plt.show()
 
 
-   # Plot 2: Registrations Over Time by Channel
-   output_path = os.path.join(output_dir, "Registrations_Over_Time_by_Channel.png")
-
-
+   # Plot 2
    plt.figure(figsize=(12, 6))
    for channel in df_advertising["Advertising_Channel"].unique():
        subset = df_advertising[df_advertising["Advertising_Channel"] == channel]
@@ -214,7 +216,6 @@ def calc_advertising_by_channel_graphs(df_advertising: pd.DataFrame, output_dir)
    plt.legend()
    plt.grid(True)
    plt.xticks(rotation=45)
-   plt.savefig(output_path, dpi=300)
    plt.show()
 
 
@@ -227,7 +228,7 @@ def calc_roi_per_channel(df: pd.DataFrame, conn):
     query_monthly = """WITH RankedData AS (
                SELECT
                    Advertising_Channel,
-                   strftime('%Y-%m', Registration_Date) AS Month,  -- חישוב חודש ושנה
+                   strftime('%Y-%m', Registration_Date) AS Month,
                    SUM(Advertising_Spend) AS total_ad_spend,
                    SUM(Number_Registrations) AS total_registrations,
                    (SUM(Accum_Day7_Deposit_Amount) - SUM(Advertising_Spend)) / SUM(Advertising_Spend) * 100 AS ROI_7,
@@ -238,7 +239,7 @@ def calc_roi_per_channel(df: pd.DataFrame, conn):
                    (SUM(Accum_Day150_Deposit_Amount) - SUM(Advertising_Spend)) / SUM(Advertising_Spend) * 100 AS ROI_150,
                    (SUM(Accum_Day180_Deposit_Amount) - SUM(Advertising_Spend)) / SUM(Advertising_Spend) * 100 AS ROI_180
                FROM game
-               WHERE Advertising_Channel <> 'Organic'  -- מסנן את האורגני
+               WHERE Advertising_Channel <> 'Organic'
                GROUP BY Advertising_Channel, Month
            )
            SELECT
@@ -263,7 +264,7 @@ def calc_roi_per_channel(df: pd.DataFrame, conn):
                    (SUM(Accum_Day150_Deposit_Amount) - SUM(Advertising_Spend)) / SUM(Advertising_Spend) * 100 AS ROI_150,
                    (SUM(Accum_Day180_Deposit_Amount) - SUM(Advertising_Spend)) / SUM(Advertising_Spend) * 100 AS ROI_180
                FROM game
-               WHERE Advertising_Channel <> 'Organic'  -- מסנן את האורגני
+               WHERE Advertising_Channel <> 'Organic'
                GROUP BY Advertising_Channel
            )
            SELECT
@@ -287,21 +288,16 @@ def plot_all_channels_side_by_side(df_advertising: pd.DataFrame):
 
     rows = num_channels
     cols = 2
-
-    # Create figure with subplots
     fig, axes = plt.subplots(nrows=rows, ncols=cols, figsize=(15, 5 * rows), sharex=True)
 
-    # Loop through each advertising channel and plot both metrics
     for idx, channel in enumerate(channels):
         subset = df_advertising[df_advertising["Advertising_Channel"] == channel]
 
-        # Left plot: Advertising Spend Over Time
         axes[idx, 0].plot(subset["Month"], subset["avg_ad_spend"], marker='o', linestyle='-', color="blue")
         axes[idx, 0].set_title(f"Ad Spend - {channel}")
         axes[idx, 0].set_ylabel("Avg Ad Spend")
         axes[idx, 0].grid(True)
 
-        # Right plot: Registrations Over Time
         axes[idx, 1].plot(subset["Month"], subset["avg_registrations"], marker='o', linestyle='-', color="green")
         axes[idx, 1].set_title(f"Registrations - {channel}")
         axes[idx, 1].set_ylabel("Avg Registrations")
