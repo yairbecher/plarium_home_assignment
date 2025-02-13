@@ -32,13 +32,20 @@ def save_dataframes(output_dir, dataframes_dict):
         print(f"Saved: {file_path}")
 
 
+# def save_plots(output_dir, plots_dict):
+#     for name, plot_func in plots_dict.items():
+#         file_path = os.path.join(output_dir, f"{name}.png")
+#         plt.figure()
+#         plot_func()
+#         plt.savefig(file_path)
+#         plt.close()
+#         print(f"Saved: {file_path}")
+
 def save_plots(output_dir, plots_dict):
-    for name, plot_func in plots_dict.items():
+    for name, fig in plots_dict.items():
         file_path = os.path.join(output_dir, f"{name}.png")
-        plt.figure()
-        plot_func()
-        plt.savefig(file_path)
-        plt.close()
+        fig.savefig(file_path, bbox_inches='tight')
+        plt.close(fig)
         print(f"Saved: {file_path}")
 
 
@@ -121,33 +128,55 @@ SELECT
 
 
 
-def avg_depositors_graph(df: pd.DataFrame, count: bool, by: bool ):
+# def avg_depositors_graph(df: pd.DataFrame, count: bool, by: bool, output_dir):
+#
+#        if count:
+#            count = 'number'
+#        else:
+#            count = 'amount'
+#
+#        if by:
+#            by = 'country'
+#        else:
+#            by = 'channel'
+#
+#        df = df.set_index(df.columns[0])
+#
+#        plt.figure(figsize=(10, 5))
+#
+#        for country in df.index:
+#            plt.plot(df.columns, df.loc[country], marker='o', label=country)
+#
+#        plt.xlabel('Days Range')
+#        plt.ylabel('Average')
+#        plt.title(f'Average {count} Depositors Over Time by {by}')
+#        plt.legend()
+#        plt.grid(True)
+#        plt.show()
+#
+#
+#        file_path = os.path.join(output_dir, f'Average {count} Depositors Over Time by {by}')
+#        fig.savefig(file_path, bbox_inches='tight')
+#        print(f"Saved: {file_path}")
+#        plt.close(fig)
 
-       if count:
-           count = 'number'
-       else:
-           count = 'amount'
+def avg_depositors_graph(df: pd.DataFrame, count: bool, by: bool):
+    count_label = 'number' if count else 'amount'
+    by_label = 'country' if by else 'channel'
+    df = df.set_index(df.columns[0])
 
-       if by:
-           by = 'country'
-       else:
-           by = 'channel'
+    fig, ax = plt.subplots(figsize=(10, 5))
+    for index in df.index:
+        ax.plot(df.columns, df.loc[index], marker='o', label=index)
 
-       df = df.set_index(df.columns[0])
+    ax.set_xlabel('Days Range')
+    ax.set_ylabel('Average')
+    ax.set_title(f'Average {count_label} Depositors Over Time by {by_label}')
+    ax.legend()
+    ax.grid(True)
+    plt.show()
 
-       plt.figure(figsize=(10, 5))
-
-       for country in df.index:
-           plt.plot(df.columns, df.loc[country], marker='o', label=country)
-
-       plt.xlabel('Days Range')
-       plt.ylabel('Average')
-       plt.title(f'Average {count} Depositors Over Time by {by}')
-       plt.legend()
-       plt.grid(True)
-       plt.show()
-
-
+    return {f"avg_{count_label}_depositors_by_{by_label}": fig}
 
 
 def calc_df_avg_Depositors_by_channel(df: pd.DataFrame, conn):
@@ -184,40 +213,78 @@ def calc_df_advertising_by_date(df: pd.DataFrame, conn):
    return pd.read_sql_query(query, conn)
 
 
+# def calc_advertising_by_channel_graphs(df_advertising: pd.DataFrame):
+#    df_advertising["Month"] = pd.to_datetime(df_advertising["Month"])
+#
+#    # Plot 1
+#    plt.figure(figsize=(12, 6))
+#    for channel in df_advertising["Advertising_Channel"].unique():
+#        subset = df_advertising[df_advertising["Advertising_Channel"] == channel]
+#        plt.plot(subset["Month"], subset["avg_ad_spend"], marker='o', label=channel)
+#
+#
+#    plt.xlabel("Month")
+#    plt.ylabel("Average Advertising Spend")
+#    plt.title("Advertising Spend Over Time by Channel")
+#    plt.legend()
+#    plt.grid(True)
+#    plt.xticks(rotation=45)
+#    plt.show()
+#
+#
+#    # Plot 2
+#    plt.figure(figsize=(12, 6))
+#    for channel in df_advertising["Advertising_Channel"].unique():
+#        subset = df_advertising[df_advertising["Advertising_Channel"] == channel]
+#        plt.plot(subset["Month"], subset["avg_registrations"], marker='o', label=channel)
+#
+#
+#    plt.xlabel("Month")
+#    plt.ylabel("Average Registrations")
+#    plt.title("Registrations Over Time by Channel")
+#    plt.legend()
+#    plt.grid(True)
+#    plt.xticks(rotation=45)
+#    plt.show()
+
+
 def calc_advertising_by_channel_graphs(df_advertising: pd.DataFrame):
-   df_advertising["Month"] = pd.to_datetime(df_advertising["Month"])
+    df_advertising["Month"] = pd.to_datetime(df_advertising["Month"])
+    plots = {}
 
-   # Plot 1
-   plt.figure(figsize=(12, 6))
-   for channel in df_advertising["Advertising_Channel"].unique():
-       subset = df_advertising[df_advertising["Advertising_Channel"] == channel]
-       plt.plot(subset["Month"], subset["avg_ad_spend"], marker='o', label=channel)
+    # Plot 1
+    fig1, ax1 = plt.subplots(figsize=(12, 6))
+    for channel in df_advertising["Advertising_Channel"].unique():
+        subset = df_advertising[df_advertising["Advertising_Channel"] == channel]
+        ax1.plot(subset["Month"], subset["avg_ad_spend"], marker='o', label=channel)
 
+    ax1.set_xlabel("Month")
+    ax1.set_ylabel("Average Advertising Spend")
+    ax1.set_title("Advertising Spend Over Time by Channel")
+    ax1.legend()
+    ax1.grid(True)
+    plt.xticks(rotation=45)
+    plt.show()
 
-   plt.xlabel("Month")
-   plt.ylabel("Average Advertising Spend")
-   plt.title("Advertising Spend Over Time by Channel")
-   plt.legend()
-   plt.grid(True)
-   plt.xticks(rotation=45)
-   plt.show()
+    plots["advertising_spend_by_channel"] = fig1
 
+    # Plot 2
+    fig2, ax2 = plt.subplots(figsize=(12, 6))
+    for channel in df_advertising["Advertising_Channel"].unique():
+        subset = df_advertising[df_advertising["Advertising_Channel"] == channel]
+        ax2.plot(subset["Month"], subset["avg_registrations"], marker='o', label=channel)
 
-   # Plot 2
-   plt.figure(figsize=(12, 6))
-   for channel in df_advertising["Advertising_Channel"].unique():
-       subset = df_advertising[df_advertising["Advertising_Channel"] == channel]
-       plt.plot(subset["Month"], subset["avg_registrations"], marker='o', label=channel)
+    ax2.set_xlabel("Month")
+    ax2.set_ylabel("Average Registrations")
+    ax2.set_title("Registrations Over Time by Channel")
+    ax2.legend()
+    ax2.grid(True)
+    plt.xticks(rotation=45)
+    plt.show()
 
+    plots["registrations_by_channel"] = fig2
 
-   plt.xlabel("Month")
-   plt.ylabel("Average Registrations")
-   plt.title("Registrations Over Time by Channel")
-   plt.legend()
-   plt.grid(True)
-   plt.xticks(rotation=45)
-   plt.show()
-
+    return plots
 
 
 
@@ -282,13 +349,38 @@ def calc_roi_per_channel(df: pd.DataFrame, conn):
 
 
 
+# def plot_all_channels_side_by_side(df_advertising: pd.DataFrame):
+#     channels = df_advertising["Advertising_Channel"].unique()
+#     num_channels = len(channels)
+#
+#     rows = num_channels
+#     cols = 2
+#     fig, axes = plt.subplots(nrows=rows, ncols=cols, figsize=(15, 5 * rows), sharex=True)
+#
+#     for idx, channel in enumerate(channels):
+#         subset = df_advertising[df_advertising["Advertising_Channel"] == channel]
+#
+#         axes[idx, 0].plot(subset["Month"], subset["avg_ad_spend"], marker='o', linestyle='-', color="blue")
+#         axes[idx, 0].set_title(f"Ad Spend - {channel}")
+#         axes[idx, 0].set_ylabel("Avg Ad Spend")
+#         axes[idx, 0].grid(True)
+#
+#         axes[idx, 1].plot(subset["Month"], subset["avg_registrations"], marker='o', linestyle='-', color="green")
+#         axes[idx, 1].set_title(f"Registrations - {channel}")
+#         axes[idx, 1].set_ylabel("Avg Registrations")
+#         axes[idx, 1].grid(True)
+#
+#     plt.xticks(rotation=0)
+#     plt.tight_layout()
+#     plt.show()
+
+
 def plot_all_channels_side_by_side(df_advertising: pd.DataFrame):
+    """יוצר גרף עם כל הערוצים זה לצד זה"""
     channels = df_advertising["Advertising_Channel"].unique()
     num_channels = len(channels)
 
-    rows = num_channels
-    cols = 2
-    fig, axes = plt.subplots(nrows=rows, ncols=cols, figsize=(15, 5 * rows), sharex=True)
+    fig, axes = plt.subplots(nrows=num_channels, ncols=2, figsize=(15, 5 * num_channels), sharex=True)
 
     for idx, channel in enumerate(channels):
         subset = df_advertising[df_advertising["Advertising_Channel"] == channel]
@@ -306,3 +398,5 @@ def plot_all_channels_side_by_side(df_advertising: pd.DataFrame):
     plt.xticks(rotation=0)
     plt.tight_layout()
     plt.show()
+
+    return {"all_channels_side_by_side": fig}

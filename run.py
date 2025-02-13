@@ -58,8 +58,13 @@ plots_dict = {
     "plt_avg_amount_depositors_by_chanel": lambda: avg_depositors_graph(df_avg_depositors_amount_by_channel, count=False, by=False)
 }
 
-save_outputs(output_dir, dataframes_dict, plots_dict)
 
+
+all_plots = {}
+for key, func in plots_dict.items():
+    all_plots.update(func())
+
+save_outputs(output_dir, dataframes_dict, all_plots)
 
 print('test1')
 
