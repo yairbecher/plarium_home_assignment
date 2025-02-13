@@ -17,7 +17,7 @@ df = pd.read_csv(input_file)
 df = reformat_date(df)
 
 
-# df_describe = df.describe()
+df_describe = df.info()
 
 
 df_number, df_amount = calc_avg_deposits_df(df)
@@ -33,7 +33,7 @@ with sqlite3.connect("df_amount.db") as conn:
 
 with sqlite3.connect("df_main.db") as conn:
    df_advertising = calc_df_advertising_by_date(df, conn)
-   df_roi = calc_roi_per_channel(df, conn)
+   df_roi_by_month, df_roi_overall = calc_roi_per_channel(df, conn)
 
 
 plot_all_channels_side_by_side(df_advertising)

@@ -179,9 +179,7 @@ ORDER BY Month, Advertising_Channel;
 def calc_advertising_by_channel_graphs(df_advertising: pd.DataFrame, output_dir):
    output_path = os.path.join(output_dir, "advertising_spend_over_time.png")
 
-
    df_advertising["Month"] = pd.to_datetime(df_advertising["Month"])
-
 
    # Plot 1: Advertising Spend Over Time by Channel
    plt.figure(figsize=(12, 6))
@@ -226,8 +224,33 @@ def calc_roi_per_channel(df: pd.DataFrame, conn):
 
     df.to_sql("game", conn, if_exists="replace", index=False)
 
+    query_monthly = """WITH RankedData AS (
+               SELECT
+                   Advertising_Channel,
+                   strftime('%Y-%m', Registration_Date) AS Month,  -- חישוב חודש ושנה
+                   SUM(Advertising_Spend) AS total_ad_spend,
+                   SUM(Number_Registrations) AS total_registrations,
+                   (SUM(Accum_Day7_Deposit_Amount) - SUM(Advertising_Spend)) / SUM(Advertising_Spend) * 100 AS ROI_7,
+                   (SUM(Accum_Day30_Deposit_Amount) - SUM(Advertising_Spend)) / SUM(Advertising_Spend) * 100 AS ROI_30,
+                   (SUM(Accum_Day60_Deposit_Amount) - SUM(Advertising_Spend)) / SUM(Advertising_Spend) * 100 AS ROI_60,
+                   (SUM(Accum_Day90_Deposit_Amount) - SUM(Advertising_Spend)) / SUM(Advertising_Spend) * 100 AS ROI_90,
+                   (SUM(Accum_Day120_Deposit_Amount) - SUM(Advertising_Spend)) / SUM(Advertising_Spend) * 100 AS ROI_120,
+                   (SUM(Accum_Day150_Deposit_Amount) - SUM(Advertising_Spend)) / SUM(Advertising_Spend) * 100 AS ROI_150,
+                   (SUM(Accum_Day180_Deposit_Amount) - SUM(Advertising_Spend)) / SUM(Advertising_Spend) * 100 AS ROI_180
+               FROM game
+               WHERE Advertising_Channel <> 'Organic'  -- מסנן את האורגני
+               GROUP BY Advertising_Channel, Month
+           )
+           SELECT
+               Advertising_Channel,
+               Month,
+               ROI_7, ROI_30, ROI_60, ROI_90, ROI_120, ROI_150, ROI_180,
+               RANK() OVER (PARTITION BY Month ORDER BY total_ad_spend DESC) AS Rank_Ad_Spend,
+               RANK() OVER (PARTITION BY Month ORDER BY total_registrations DESC) AS Rank_Registrations
+           FROM RankedData
+           ORDER BY Month, Rank_Ad_Spend;"""
 
-    query = """WITH RankedData AS (
+    query_overall = """WITH RankedData AS (
                SELECT
                    Advertising_Channel,
                    SUM(Advertising_Spend) AS total_ad_spend,
@@ -240,6 +263,7 @@ def calc_roi_per_channel(df: pd.DataFrame, conn):
                    (SUM(Accum_Day150_Deposit_Amount) - SUM(Advertising_Spend)) / SUM(Advertising_Spend) * 100 AS ROI_150,
                    (SUM(Accum_Day180_Deposit_Amount) - SUM(Advertising_Spend)) / SUM(Advertising_Spend) * 100 AS ROI_180
                FROM game
+               WHERE Advertising_Channel <> 'Organic'  -- מסנן את האורגני
                GROUP BY Advertising_Channel
            )
            SELECT
@@ -250,13 +274,46 @@ def calc_roi_per_channel(df: pd.DataFrame, conn):
            FROM RankedData
            ORDER BY Rank_Ad_Spend;"""
 
+    df_roi_by_month = pd.read_sql(query_monthly, conn)
+    df_roi_overall = pd.read_sql(query_overall, conn)
 
-    result = pd.read_sql_query(query, conn)
-    return result
+    return df_roi_by_month, df_roi_overall
 
 
 
-# def calc_roi_per_channel(df: pd.DataFrame, conn):
+def plot_all_channels_side_by_side(df_advertising: pd.DataFrame):
+    channels = df_advertising["Advertising_Channel"].unique()
+    num_channels = len(channels)
+
+    rows = num_channels
+    cols = 2
+
+    # Create figure with subplots
+    fig, axes = plt.subplots(nrows=rows, ncols=cols, figsize=(15, 5 * rows), sharex=True)
+
+    # Loop through each advertising channel and plot both metrics
+    for idx, channel in enumerate(channels):
+        subset = df_advertising[df_advertising["Advertising_Channel"] == channel]
+
+        # Left plot: Advertising Spend Over Time
+        axes[idx, 0].plot(subset["Month"], subset["avg_ad_spend"], marker='o', linestyle='-', color="blue")
+        axes[idx, 0].set_title(f"Ad Spend - {channel}")
+        axes[idx, 0].set_ylabel("Avg Ad Spend")
+        axes[idx, 0].grid(True)
+
+        # Right plot: Registrations Over Time
+        axes[idx, 1].plot(subset["Month"], subset["avg_registrations"], marker='o', linestyle='-', color="green")
+        axes[idx, 1].set_title(f"Registrations - {channel}")
+        axes[idx, 1].set_ylabel("Avg Registrations")
+        axes[idx, 1].grid(True)
+
+    plt.xticks(rotation=0)
+    plt.tight_layout()
+    plt.show()
+
+
+
+    # def calc_roi_per_channel(df: pd.DataFrame, conn):
 #     """
 #     Calculates ROI per advertising channel, ranks channels by advertising spend & registrations,
 #     and ensures proper formatting and handling of missing values.
@@ -379,50 +436,11 @@ def calc_roi_per_channel(df: pd.DataFrame, conn):
 #     return result
 
 
-def plot_all_channels_side_by_side(df_advertising: pd.DataFrame):
-
-
-   channels = df_advertising["Advertising_Channel"].unique()
-   num_channels = len(channels)
-
-
-   # Define grid layout: Each channel gets 2 plots (side by side), so 2 columns
-   rows = num_channels  # Each row represents one advertising channel
-   cols = 2  # Two columns: one for ad spend, one for registrations
-
-
-   # Create figure with subplots
-   fig, axes = plt.subplots(nrows=rows, ncols=cols, figsize=(15, 5 * rows), sharex=True)
-
-
-   # Loop through each advertising channel and plot both metrics
-   for idx, channel in enumerate(channels):
-       subset = df_advertising[df_advertising["Advertising_Channel"] == channel]
-
-
-       # Left plot: Advertising Spend Over Time
-       axes[idx, 0].plot(subset["Month"], subset["avg_ad_spend"], marker='o', linestyle='-', color="blue")
-       axes[idx, 0].set_title(f"Ad Spend - {channel}")
-       axes[idx, 0].set_ylabel("Avg Ad Spend")
-       axes[idx, 0].grid(True)
-
-
-       # Right plot: Registrations Over Time
-       axes[idx, 1].plot(subset["Month"], subset["avg_registrations"], marker='o', linestyle='-', color="green")
-       axes[idx, 1].set_title(f"Registrations - {channel}")
-       axes[idx, 1].set_ylabel("Avg Registrations")
-       axes[idx, 1].grid(True)
-
-
-   # Formatting
-   plt.xticks(rotation=45)
-   plt.tight_layout()
 
 
    # # Save figure
    # output_path = os.path.join(output_dir, "All_Channels_AdSpend_vs_Registrations.png")
    # plt.savefig(output_path, dpi=300)
-   plt.show()
 
 
 
